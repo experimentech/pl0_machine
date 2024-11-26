@@ -50,3 +50,18 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+# Build outputs
+*.o
+*.out
+*.vvp
+*.vcd
+
+# Editor files
+.vscode/
+*.swp
+*~
+
+# Generated files
+pl0_sim
+assembler
