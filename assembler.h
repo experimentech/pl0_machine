@@ -51,7 +51,22 @@ typedef struct {
     int count;
 } LabelTable;
 
+typedef enum {
+    INSTR_ARITH,  // Arithmetic (uses OPR)
+    INSTR_JUMP,   // Jump (needs label)
+    INSTR_LIT,    // Literal (needs value)
+    INSTR_BASIC   // Basic instruction (no args)
+} InstrType;
+
+typedef struct {
+    const char* mnemonic;
+    uint8_t opcode;
+    uint8_t subtype;
+    InstrType type;
+} Instruction;
+
 // Function declarations
 AssemblerResult assemble_string(const char* input, uint16_t* output, int max_size);
+AssemblerResult assemble_file(const char* input_file, const char* output_file);
 
 #endif
