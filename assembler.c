@@ -31,7 +31,7 @@ static int find_label(const char* name) {
 
 static const Instruction instruction_table[] = {
     // Stack/Memory
-    {"PUSH", OP_LIT, 0,       INSTR_LIT},
+    {"LIT",  OP_LIT, 0,       INSTR_LIT},
     {"LOD",  OP_LOD, 0,       INSTR_LIT},
     {"STO",  OP_STO, 0,       INSTR_LIT},
     
@@ -56,6 +56,8 @@ static const Instruction instruction_table[] = {
     
     // Control flow
     {"JMP",  OP_JMP, 0,       INSTR_JUMP},
+    {"RJMP", OP_RJMP,0,       INSTR_JUMP},
+    {"RJPC", OP_RJPC,0,       INSTR_JUMP},
     {"JPC",  OP_JPC, 0,       INSTR_JUMP},
     {"CAL",  OP_CAL, 0,       INSTR_JUMP},
     {"RET",  OP_RET, 0,       INSTR_BASIC},
@@ -76,117 +78,118 @@ static const Instruction* find_instruction(const char* mnemonic) {
     return NULL;
 }
 
-AssemblerResult assemble_string(const char* input, uint16_t* output, int max_size) {
-    if (!input || !output || max_size < 1) {
-        return ASSEMBLER_INVALID_PARAMS;
+static uint16_t encode_instruction(const Instruction* instr, const char* arg) {
+    if (!instr) return 0;
+
+    switch (instr->type) {
+        case INSTR_LIT:
+            return (instr->opcode << OPCODE_SHIFT) | (atoi(arg) & IMMEDIATE_MASK);
+            
+        case INSTR_ARITH:
+            return (instr->opcode << OPCODE_SHIFT) | (instr->subtype & IMMEDIATE_MASK);
+            
+        case INSTR_BASIC:
+            return (instr->opcode << OPCODE_SHIFT);
+            
+        default:
+            fprintf(stderr, "Error: Unknown instruction type %d\n", instr->type);
+            return 0;
     }
+}
 
-    init_label_table();
-
-    // First pass - collect labels and count instructions
-    char* input_copy = strdup(input);
-    char* saveptr1;
-    char* line = strtok_r(input_copy, "\n", &saveptr1);
-    int current_address = 0;
+AssemblerResult assemble_string(const char* input, uint16_t* output, int max_size) {
+    fprintf(stderr, "Debug: Starting assembly of:\n%s\n", input);
     
+    // First pass
+    fprintf(stderr, "Debug: First pass - collecting labels\n");
+    init_label_table();
+    int current_address = 0;
+    int skip_mode = 0;
+    
+    char* input_copy = strdup(input);
+    char* saveptr1 = NULL;
+    char* saveptr2 = NULL;
+    char* line = strtok_r(input_copy, "\n", &saveptr1);
+
+    // First pass - collect labels and count reachable instructions
     while (line) {
-        char* saveptr2;
         char* token = strtok_r(line, " \t", &saveptr2);
-        
-        if (!token) {
-            line = strtok_r(NULL, "\n", &saveptr1);
-            continue;
-        }
-
-        // Skip comments and empty lines
-        if (token[0] == ';' || token[0] == '#') {
-            line = strtok_r(NULL, "\n", &saveptr1);
-            continue;
-        }
-
-        if (token[strlen(token) - 1] == ':') {
-            // Handle label definition - don't increment address
-            token[strlen(token) - 1] = '\0';
-            if (add_label(token, current_address) < 0) {
-                free(input_copy);
-                return ASSEMBLER_ERROR;
-            }
-        } else {
-            // Look up instruction in table
-            const Instruction* instr = find_instruction(token);
-            if (instr) {
-                current_address++;  // Count instruction
-                if (instr->type == INSTR_LIT || instr->type == INSTR_JUMP) {
-                    // Skip argument token
-                    char* arg = strtok_r(NULL, " \t", &saveptr2);
-                    if (!arg) {
-                        free(input_copy);
-                        return ASSEMBLER_ERROR;  // Missing required argument
+        if (token) {
+            if (token[strlen(token) - 1] == ':') {
+                // Label points to current instruction
+                token[strlen(token) - 1] = '\0';
+                fprintf(stderr, "Debug: Found label '%s' at address %d\n", 
+                        token, current_address);
+                add_label(token, current_address);
+                skip_mode = 0;  // Reset skip mode at label
+            } else {
+                const Instruction* instr = find_instruction(token);
+                if (instr) {
+                    if (!skip_mode) {
+                        fprintf(stderr, "Debug: Found instruction '%s' at address %d\n", 
+                                token, current_address);
+                        current_address++;  // Only increment for reachable instructions
+                        
+                        // Only enable skip mode after unconditional jumps
+                        if (instr->type == INSTR_JUMP && instr->opcode == OP_JMP) {
+                            fprintf(stderr, "Debug: Enabling skip mode after JMP\n");
+                            skip_mode = 1;
+                        }
+                    } else {
+                        fprintf(stderr, "Debug: Skipping unreachable instruction '%s'\n", token);
                     }
                 }
             }
         }
-
         line = strtok_r(NULL, "\n", &saveptr1);
     }
 
-    fprintf(stderr, "First pass complete: found %d labels, counted %d instructions\n", 
-            label_table.count, current_address);
-
-    // Second pass - generate code
+    // Second pass - generate code only for reachable instructions
+    skip_mode = 0;
+    fprintf(stderr, "Debug: Second pass - generating code\n");
     free(input_copy);
     input_copy = strdup(input);
+    saveptr1 = NULL;
     line = strtok_r(input_copy, "\n", &saveptr1);
     int instruction_count = 0;
 
     while (line && instruction_count < max_size) {
-        char* saveptr2;
+        saveptr2 = NULL;
         char* token = strtok_r(line, " \t", &saveptr2);
-        
-        if (!token || token[strlen(token) - 1] == ':') {
-            line = strtok_r(NULL, "\n", &saveptr1);
-            continue;
-        }
-
-        const Instruction* instr = find_instruction(token);
-        if (!instr) {
-            free(input_copy);
-            return ASSEMBLER_ERROR;
-        }
-
-        switch (instr->type) {
-            case INSTR_LIT:
-                char* value = strtok_r(NULL, " \t", &saveptr2);
-                if (!value) break;
-                output[instruction_count++] = (instr->opcode << OPCODE_SHIFT) | 
-                                            (atoi(value) & IMMEDIATE_MASK);
-                break;
-                
-            case INSTR_JUMP:
-                char* label = strtok_r(NULL, " \t", &saveptr2);
-                if (!label) break;
-                int target = find_label(label);
-                if (target < 0) {
-                    free(input_copy);
-                    return ASSEMBLER_ERROR;
+        if (token) {
+            if (token[strlen(token) - 1] == ':') {
+                token[strlen(token) - 1] = '\0';
+                fprintf(stderr, "Debug: Found label '%s', resetting skip mode\n", token);
+                skip_mode = 0;
+            } else if (!skip_mode) {
+                const Instruction* instr = find_instruction(token);
+                if (instr) {
+                    char* arg = strtok_r(NULL, " \t", &saveptr2);
+                    fprintf(stderr, "Debug: Generating code for '%s'%s%s at position %d\n",
+                            token, arg ? " " : "", arg ? arg : "", instruction_count);
+                    
+                    if (instr->type == INSTR_JUMP) {
+                        int target = find_label(arg);
+                        output[instruction_count] = (instr->opcode << 12) | (target & 0xFFF);
+                        fprintf(stderr, "Debug: Jump instruction to label '%s' (address %d)\n",
+                                arg, target);
+                        if (instr->opcode == OP_JMP) {
+                            fprintf(stderr, "Debug: Enabling skip mode after JMP\n");
+                            skip_mode = 1;
+                        }
+                    } else {
+                        output[instruction_count] = encode_instruction(instr, arg);
+                    }
+                    instruction_count++;
                 }
-                output[instruction_count++] = (instr->opcode << OPCODE_SHIFT) | 
-                                            (target & IMMEDIATE_MASK);
-                break;
-                
-            case INSTR_ARITH:
-                output[instruction_count++] = (instr->opcode << OPCODE_SHIFT) | 
-                                            instr->subtype;
-                break;
-                
-            case INSTR_BASIC:
-                output[instruction_count++] = (instr->opcode << OPCODE_SHIFT);
-                break;
+            } else {
+                fprintf(stderr, "Debug: Skipping instruction '%s' due to skip_mode\n", token);
+            }
         }
-        
         line = strtok_r(NULL, "\n", &saveptr1);
     }
 
+    fprintf(stderr, "Debug: Generated %d instructions\n", instruction_count);
     free(input_copy);
     return instruction_count;
 }
@@ -198,11 +201,13 @@ AssemblerResult assemble_file(const char* input_file, const char* output_file) {
         fprintf(stderr, "Error: Could not open input file %s\n", input_file);
         return ASSEMBLER_INVALID_PARAMS;
     }
+    fprintf(stderr, "Debug: Opened input file %s\n", input_file);
 
     // Get file size
     fseek(in, 0, SEEK_END);
     long file_size = ftell(in);
     fseek(in, 0, SEEK_SET);
+    fprintf(stderr, "Debug: File size: %ld bytes\n", file_size);
 
     // Read entire file into buffer
     char* input_buffer = (char*)malloc(file_size + 1);
@@ -215,14 +220,20 @@ AssemblerResult assemble_file(const char* input_file, const char* output_file) {
     size_t bytes_read = fread(input_buffer, 1, file_size, in);
     input_buffer[bytes_read] = '\0';
     fclose(in);
+    fprintf(stderr, "Debug: Read %zu bytes\n", bytes_read);
+    fprintf(stderr, "Debug: Input buffer contents:\n%s\n", input_buffer);
 
     // Allocate output buffer for machine code
     uint16_t output_buffer[MAX_INSTRUCTIONS];
+    fprintf(stderr, "Debug: Allocated output buffer for %d instructions\n", MAX_INSTRUCTIONS);
     
-    // Assemble the code - match AssemblerResult type
+    // Assemble the code
+    fprintf(stderr, "Debug: Starting assembly...\n");
     AssemblerResult result = assemble_string(input_buffer, output_buffer, MAX_INSTRUCTIONS);
+    fprintf(stderr, "Debug: Assembly returned %d\n", result);
+    
     if (result <= 0) {
-        fprintf(stderr, "Error: Assembly failed\n");
+        fprintf(stderr, "Error: Assembly failed with code %d\n", result);
         free(input_buffer);
         return result;
     }
@@ -234,17 +245,29 @@ AssemblerResult assemble_file(const char* input_file, const char* output_file) {
         free(input_buffer);
         return ASSEMBLER_FILE_ERROR;
     }
+    fprintf(stderr, "Debug: Opened output file %s\n", output_file);
 
-    // Write machine code - use result as count
+    // Write machine code
     size_t words_written = fwrite(output_buffer, sizeof(uint16_t), result, out);
-    if (words_written != result) {
-        fprintf(stderr, "Error: Failed to write all instructions\n");
+    fprintf(stderr, "Debug: Writing %d words...\n", result);
+    
+    // Fix format specifier for words_written comparison
+    if (words_written != (size_t)result) {
+        fprintf(stderr, "Error: Failed to write all instructions (wrote %zu of %d)\n", 
+                words_written, result);
         free(input_buffer);
         fclose(out);
         return ASSEMBLER_FILE_ERROR;
     }
+    fprintf(stderr, "Debug: Successfully wrote %zu words\n", words_written);
+
+    // Debug dump of generated code
+    fprintf(stderr, "Debug: Generated instructions:\n");
+    for (size_t i = 0; i < words_written; i++) {
+        fprintf(stderr, "  %04d: 0x%04X\n", (int)i, output_buffer[i]);
+    }
 
     free(input_buffer);
     fclose(out);
-    return ASSEMBLER_SUCCESS;
+    return result;  // Return number of instructions assembled
 }

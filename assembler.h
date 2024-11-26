@@ -6,8 +6,8 @@
 #include "assembler_types.h"
 
 // Main opcodes (4 bits)
-#define OP_LIT 0x1   // Load literal (changed from 0x0)
-#define OP_OPR 0x2   // Arithmetic operations (changed from 0x1)
+#define OP_LIT 0x0   // Load literal
+#define OP_OPR 0x1   // Arithmetic operations
 
 // Opcodes matching pl0_machine.v
 #define OP_LOD 0x2   // Load from memory
@@ -18,6 +18,8 @@
 #define OP_JPC 0x7   // Jump if zero
 #define OP_IN  0x8   // Input
 #define OP_OUT 0x9   // Output
+#define OP_RJMP 0xA  // Relative jump
+#define OP_RJPC 0xB  // Relative jump if zero
 
 // OPR subtypes match pl0_machine.v implementation
 #define OPR_RET 0x00  // Return - matches 8'h00
@@ -68,5 +70,6 @@ typedef struct {
 // Function declarations
 AssemblerResult assemble_string(const char* input, uint16_t* output, int max_size);
 AssemblerResult assemble_file(const char* input_file, const char* output_file);
+
 
 #endif
