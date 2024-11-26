@@ -74,9 +74,74 @@ AssemblerResult assemble_string(const char* input, uint16_t* output, int max_siz
                 output[instruction_count++] = (OP_LIT << OPCODE_SHIFT) | immediate;
             } 
             else if (strcmp(token, "ADD") == 0) {
-                // Use OP_OPR for arithmetic operations with OPR_ADD as subtype
+                // For arithmetic operations, use OP_OPR as main opcode and OPR_ADD as subtype
                 output[instruction_count++] = (OP_OPR << OPCODE_SHIFT) | OPR_ADD;
+            }
+            else if (strcmp(token, "SUB") == 0) {
+                output[instruction_count++] = (OP_OPR << OPCODE_SHIFT) | OPR_SUB;
+            }
+            else if (strcmp(token, "MUL") == 0) {
+                output[instruction_count++] = (OP_OPR << OPCODE_SHIFT) | OPR_MUL;
+            }
+            else if (strcmp(token, "DIV") == 0) {
+                output[instruction_count++] = (OP_OPR << OPCODE_SHIFT) | OPR_DIV;
+            }
+            else if (strcmp(token, "MOD") == 0) {
+                output[instruction_count++] = (OP_OPR << OPCODE_SHIFT) | OPR_MOD;
+            }
+            else if (strcmp(token, "EQL") == 0) {
+                output[instruction_count++] = (OP_OPR << OPCODE_SHIFT) | OPR_EQL;
+            }
+            else if (strcmp(token, "NEQ") == 0) {
+                output[instruction_count++] = (OP_OPR << OPCODE_SHIFT) | OPR_NEQ;
+            }
+            else if (strcmp(token, "LSS") == 0) {
+                output[instruction_count++] = (OP_OPR << OPCODE_SHIFT) | OPR_LSS;
+            }
+            else if (strcmp(token, "GTE") == 0) {
+                output[instruction_count++] = (OP_OPR << OPCODE_SHIFT) | OPR_GTE;
+            }
+            else if (strcmp(token, "GTR") == 0) {
+                output[instruction_count++] = (OP_OPR << OPCODE_SHIFT) | OPR_GTR;
+            }
+            else if (strcmp(token, "LTE") == 0) {
+                output[instruction_count++] = (OP_OPR << OPCODE_SHIFT) | OPR_LTE;
+            }
+            else if (strcmp(token, "LSH") == 0) {
+                output[instruction_count++] = (OP_OPR << OPCODE_SHIFT) | OPR_LSH;
+            }
+            else if (strcmp(token, "RSH") == 0) {
+                output[instruction_count++] = (OP_OPR << OPCODE_SHIFT) | OPR_RSH;
+            }
+            else if (strcmp(token, "IN") == 0) {
+                output[instruction_count++] = (OP_IN << OPCODE_SHIFT);
+            }
+            else if (strcmp(token, "OUT") == 0) {
+                output[instruction_count++] = (OP_OUT << OPCODE_SHIFT);
+            }
+            else if (strcmp(token, "CAL") == 0) {
+                char* label = strtok_r(NULL, " \t", &saveptr2);
+                if (!label) break;
+                int target = find_label(label);
+                if (target < 0) {
+                    free(input_copy);
+                    return ASSEMBLER_ERROR;
                 }
+                output[instruction_count++] = (OP_CAL << OPCODE_SHIFT) | (target & IMMEDIATE_MASK);
+            }
+            else if (strcmp(token, "RET") == 0) {
+                output[instruction_count++] = (OP_RET << OPCODE_SHIFT);
+            }
+            else if (strcmp(token, "JPC") == 0) {
+                char* label = strtok_r(NULL, " \t", &saveptr2);
+                if (!label) break;
+                int target = find_label(label);
+                if (target < 0) {
+                    free(input_copy);
+                    return ASSEMBLER_ERROR;
+                }
+                output[instruction_count++] = (OP_JPC << OPCODE_SHIFT) | (target & IMMEDIATE_MASK);
+            }
             else if (strcmp(token, "JMP") == 0) {
                 char* label = strtok_r(NULL, " \t", &saveptr2);
                 if (!label) break;

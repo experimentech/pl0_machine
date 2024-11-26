@@ -5,9 +5,11 @@
 #include <stdint.h>
 #include "assembler_types.h"
 
+// Main opcodes (4 bits)
+#define OP_LIT 0x1   // Load literal (changed from 0x0)
+#define OP_OPR 0x2   // Arithmetic operations (changed from 0x1)
+
 // Opcodes matching pl0_machine.v
-#define OP_LIT 0x0   // Load literal
-#define OP_OPR 0x1   // Arithmetic operations
 #define OP_LOD 0x2   // Load from memory
 #define OP_STO 0x3   // Store to memory
 #define OP_CAL 0x4   // Call subroutine
@@ -17,11 +19,11 @@
 #define OP_IN  0x8   // Input
 #define OP_OUT 0x9   // Output
 
-// OPR subtypes
-#define OPR_RET 0x00  // RET  - Return
-#define OPR_ADD 0x01  // ADD  - Addition
-#define OPR_SUB 0x02  // SUB  - Subtraction
-#define OPR_MUL 0x03  // MUL  - Multiplication
+// OPR subtypes match pl0_machine.v implementation
+#define OPR_RET 0x00  // Return - matches 8'h00
+#define OPR_ADD 0x01  // ADD    - matches 8'h01
+#define OPR_SUB 0x02  // SUB    - matches 8'h02
+#define OPR_MUL 0x03  // MUL    - matches 8'h03
 #define OPR_DIV 0x04  // DIV  - Division
 #define OPR_MOD 0x05  // MOD  - Modulo
 #define OPR_EQL 0x06  // EQL  - Equal

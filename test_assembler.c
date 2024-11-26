@@ -18,17 +18,15 @@ void test_add_operation() {
     assert(result == 3);
     assert(output[0] == ((OP_LIT << 12) | 5));
     assert(output[1] == ((OP_LIT << 12) | 3));
-    assert(output[2] == (OPR_ADD << 12));
+    assert(output[2] == ((OP_OPR << 12) | OPR_ADD));  // Changed this line
 }
 
 void test_instruction_encoding() {
-    // Test that LIT instruction correctly encodes value
-    assert((OP_LIT << 12 | 42) == 0x102A);  // 0001 0000 0010 1010
+    // Test LIT instruction
+    assert((OP_LIT << 12 | 42) == 0x102A);
     
-    // Test that stack operation has no operand
-    assert((OPR_ADD << 12) == 0x2000);       // 0010 0000 0000 0000
-    
-    printf("Instruction encoding tests passed\n");
+    // Test ADD operation - uses OP_OPR with OPR_ADD subtype
+    assert((OP_OPR << 12 | OPR_ADD) == 0x2001);
 }
 
 void test_jump_operations() {

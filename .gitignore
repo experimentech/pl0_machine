@@ -65,3 +65,5 @@ dkms.conf
 # Generated files
 pl0_sim
 assembler
+test_assembler
+
